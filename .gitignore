@@ -1,0 +1,100 @@
+# Dependency directories
+/node_modules/
+/jspm_packages/
+/venv/
+/.venv/
+/env/
+/__pycache__/
+
+# Next.js build output
+/.next/
+/out/
+
+# Build outputs
+/build/
+/dist/
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+/logs/
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# Operating System files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDEs and editors
+/.vscode/
+/.idea/
+*.swp
+*.swo
+.project
+.classpath
+/.settings/
+
+# Python specific
+*.py[cod]
+*$py.class
+*.so
+.Python
+/lib/
+/lib64/
+/bin/
+/include/
+/sdist/
+/develop-eggs/
+/eggs/
+/.eggs/
+/parts/
+/var/
+/sdist/
+/develop-eggs/
+.installed.cfg
+*.egg
+MANIFEST
+.cache
+/.pytest_cache/
+/.tox/
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+/.hypothesis/
+
+# Data and Models (ML)
+/backend/content/
+backend/content/*.csv
+backend/content/*.geojson
+/backend/data/
+/backend/models/
+/backend/cache/
+/backend/requirements/
+*.png
+*.csv
+
+/ML/data/
+ML/models/
+*.h5
+*.pkl
+*.joblib
+*.pth
+*.onnx
+
+# TypeScript
+*.tsbuildinfo

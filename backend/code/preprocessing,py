@@ -1,0 +1,13 @@
+import numpy as np
+
+df = listings.copy()
+
+target_col = 'price'
+df[target_col] = df[target_col].astype(str).str.replace('$', '').str.replace(',', '').astype(float)
+df = df.dropna(subset=[target_col])
+
+q_low = df[target_col].quantile(0.02)
+q_high = df[target_col].quantile(0.98)
+df = df[(df[target_col] >= q_low) & (df[target_col] <= q_high)]
+
+df['log_price'] = np.log1p(df[target_col])
