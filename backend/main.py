@@ -79,7 +79,7 @@ def load_data():
         csv_path = ml_path if os.path.exists(ml_path) else local_path
 
         if os.path.exists(csv_path):
-            print(f"✅ Loading listings from: {csv_path}")
+            print(f"Loading listings from: {csv_path}")
             df_listings_global = pd.read_csv(csv_path)
             state['progress'] = 40
 
@@ -89,7 +89,7 @@ def load_data():
             raw_path = ml_raw if os.path.exists(ml_raw) else local_raw
 
             if os.path.exists(raw_path):
-                print(f"🏠 Enhancing with raw host/review data from: {raw_path}")
+                print(f"Enhancing with raw host/review data from: {raw_path}")
                 extra_cols = [
                     'id', 'host_name', 'host_since', 'host_location', 'host_about',
                     'host_response_rate', 'host_identity_verified', 'description',
@@ -102,9 +102,9 @@ def load_data():
                     df_raw = pd.read_csv(raw_path, usecols=extra_cols, low_memory=False)
                     cols_to_use = [c for c in extra_cols if c not in df_listings_global.columns or c == 'id']
                     df_listings_global = df_listings_global.merge(df_raw[cols_to_use], on='id', how='left')
-                    print(f"✨ Enhanced listings with host and review data")
+                    print(f"Enhanced listings with host and review data")
                 except Exception as merge_err:
-                    print(f"⚠️ Could not merge raw data: {merge_err}")
+                    print(f"Could not merge raw data: {merge_err}")
                 state['progress'] = 50
 
             state['status'] = 'scoring_neighborhoods'
@@ -120,14 +120,14 @@ def load_data():
                         file_size = str(os.path.getsize(csv_path))
                         if cache_stat == data_stat or cache_stat.endswith(f"_{file_size}"):
                             cached_scores = cache_bundle.get('scores')
-                            print("💎 Using high-performance cached neighborhood scores")
+                            print("Using cache scores")
                     except: pass
 
                 if cached_scores is not None:
                     df_listings_global['neighborhood_score'] = cached_scores
                     state['progress'] = 80
                 else:
-                    print("🎓 Starting Optimized Hedonic Scoring (SHAP Pipeline)...", flush=True)
+                    print("Starting Optimized Hedonic Scoring (SHAP Pipeline)...", flush=True)
                     try:
                         import xgboost as xgb
                         feature_names = state['X_test'].columns.tolist()
@@ -160,20 +160,20 @@ def load_data():
                             sample_idx = np.random.choice(len(spatial_impact), sample_size, replace=False)
                             sample = spatial_impact[sample_idx]
 
+                            # Z_SCORE OF NEIGHBORHOOD SCORES
                             s_mean, s_std = np.mean(sample), np.std(sample)
                             z = (spatial_impact - s_mean) / (s_std + 1e-9)
-
                             normalized = 4.0 + 5.9 / (1 + np.exp(-z))
 
                             df_listings_global['neighborhood_score'] = np.round(normalized, 1).astype(float)
 
                             joblib.dump({'stat': data_stat, 'scores': df_listings_global['neighborhood_score'].values}, cache_path)
-                            print(f"⭐ Successfully calculated and cached scores (1-decimal precision) for {len(df_listings_global)} listings", flush=True)
+                            print(f"Successfully calculated for {len(df_listings_global)} listings", flush=True)
                             state['progress'] = 80
                         else:
                             df_listings_global['neighborhood_score'] = 9.3
                     except Exception as shap_err:
-                        print(f"⚠️ High-performance SHAP scoring failed: {shap_err}", flush=True)
+                        print(f"SHAP scoring failed: {shap_err}", flush=True)
                         df_listings_global['neighborhood_score'] = 9.3
 
             if 'neighborhood_score' in df_listings_global.columns:
@@ -192,18 +192,18 @@ def load_data():
                 state['pois_df'] = pd.read_csv(poi_path)
                 poi_coords = state['pois_df'][['lat', 'lon']].values
                 state['pois_tree'] = KDTree(poi_coords)
-                print(f"✅ Spatial index built for {len(state['pois_df'])} London landmarks")
+                print(f"Spatial index built for {len(state['pois_df'])} London landmarks")
 
             state['status'] = 'ready'
             state['progress'] = 100
-            print(f"🚀 Backend fully operational with {len(df_listings_global)} listings")
+            print(f"Backend fully operational with {len(df_listings_global)} listings")
         else:
             state['status'] = 'error'
             state['error'] = "No listing data found."
     except Exception as e:
         state['status'] = 'error'
         state['error'] = str(e)
-        print(f"❌ Critical error in load_data: {e}")
+        print(f"Critical error in load_data: {e}")
 
 def start_loading():
     if load_artifacts():
@@ -306,24 +306,17 @@ def get_listing(listing_id: str):
         if 'neighborhood_score' in data and data['neighborhood_score'] is not None:
             data['neighborhood_score'] = round(float(data['neighborhood_score']), 1)
 
-        if state['X_test'] is not None:
-            try:
-                lat, lon = data.get('latitude'), data.get('longitude')
-                if lat and lon:
-                    dists = np.sqrt((state['X_test']['LAT'] - lat)**2 + (state['X_test']['LONG'] - lon)**2)
-                    idx = dists.idxmin()
-                    nearest = state['X_test'].loc[idx]
+        try:
+            density = float(data.get('spatial_amenity_density', 0))
+            dist_to_amenity = float(data.get('spatial_nearest_amenity_km', 0.1))
 
-                    density = float(nearest.get('spatial_amenity_density', 0))
-                    dist_to_amenity = float(nearest.get('spatial_nearest_amenity_km', 0.1))
-
-                    data['transport_count_1km'] = int(nearest.get('spatial_amenities_500m', 0) * 1.2) + 1
-                    data['restaurant_count_1km'] = int(density / 12) + 2
-                    data['spatial_amenities_500m'] = int(nearest.get('spatial_amenities_500m', 0))
-                    data['spatial_city_center_km'] = round(float(nearest.get('spatial_city_center_km', 0)), 1)
-                    data['nearest_amenity_m'] = int(dist_to_amenity * 1000)
-            except Exception as e:
-                print(f"Spatial injection error: {e}")
+            data['transport_count_1km'] = int(data.get('spatial_amenities_500m', 0) * 1.2) + 1
+            data['restaurant_count_1km'] = int(density / 12) + 2
+            data['spatial_amenities_500m'] = int(data.get('spatial_amenities_500m', 0))
+            data['spatial_city_center_km'] = round(float(data.get('spatial_city_center_km', 0)), 1)
+            data['nearest_amenity_m'] = int(dist_to_amenity * 1000)
+        except Exception as e:
+            print(f"Spatial extraction error: {e}")
 
         clean_data = {k: (None if pd.isna(v) else v) for k, v in data.items()}
         return clean_data
@@ -367,36 +360,42 @@ def get_neighborhood_insights(listing_id: str):
             bracket = "Emerging Growth Zone"
             vibe = "Diverse Community District"
 
-        dist_to_center, dist_to_amenity, amenity_density = 7.5, 0.12, 148
+        try:
+            dist_to_center = float(listing_data.get('spatial_city_center_km', 7.5))
+            dist_to_amenity = float(listing_data.get('spatial_nearest_amenity_km', 0.12))
+            amenity_density = float(listing_data.get('spatial_amenity_density', 148))
+        except Exception as e:
+            dist_to_center, dist_to_amenity, amenity_density = 7.5, 0.12, 148
+            print(f"Insights extraction error: {e}")
 
-        if state['X_test'] is not None:
-            try:
-                lat, lon = listing_data.get('latitude'), listing_data.get('longitude')
-                if lat and lon:
-                    dists = np.sqrt((state['X_test']['LAT'] - lat)**2 + (state['X_test']['LONG'] - lon)**2)
-                    idx = dists.idxmin()
-                    nearest = state['X_test'].loc[idx]
-                    dist_to_center = float(nearest.get('spatial_city_center_km', 7.5))
-                    dist_to_amenity = float(nearest.get('spatial_nearest_amenity_km', 0.12))
-                    amenity_density = float(nearest.get('spatial_amenity_density', 148))
-            except: pass
-
-        transit = 10.0 - (dist_to_center * 0.18)
-        walk = 10.0 - (dist_to_amenity * 4.5)
-        amenities = min(9.9, (np.log10(amenity_density + 1) * 3.1) + 0.5)
-        safety = 9.8 - (dist_to_center * 0.05) - (0.5 if amenity_density > 500 else 0)
-
-        spatial_bonus = (1.5 / (dist_to_center + 1.0)) + (amenities / 20.0)
-        differentiated_score = listing_score * 0.8 + spatial_bonus * 1.2
-        final_display_score = 8.5 + ((differentiated_score - 10.0) / 1.5)
-        final_display_score = max(5.0, min(10.0, final_display_score))
+        transit = 10.0 - (dist_to_center * 0.45)
+        walk = 10.0 - (dist_to_amenity * 10.0)
+        amenities = min(9.9, (np.log10(amenity_density + 1) * 2.8))
+        
+        safety = 8.0 + (dist_to_center * 0.15) - (0.8 if amenity_density > 300 else 0)
+        safety = max(4.0, min(9.8, safety))
+        final_display_score = float(listing_score)
 
         if dist_to_center < 3.5: vibe = "Central Metropolis"
         elif dist_to_center < 8.0: vibe = "Belt-1 Residential"
         else: vibe = "Green Commuter Belt"
 
+        desc_factors = []
+        if transit > 7.5: desc_factors.append("excellent transit")
+        elif transit < 4.0: desc_factors.append("limited transit")
+        if walk > 8.0: desc_factors.append("high walkability")
+        elif walk < 4.0: desc_factors.append("car-dependent layout")
+        if amenity_density > 200: desc_factors.append("dense local amenities")
+        elif amenity_density < 20: desc_factors.append("quieter surroundings")
+
+        if len(desc_factors) >= 2: score_desc = f"Driven primarily by {desc_factors[0]} and {desc_factors[1]}."
+        elif len(desc_factors) == 1: score_desc = f"Driven primarily by {desc_factors[0]}."
+        else: score_desc = "Balanced spatial metrics with average city access."
+        score_desc = f"AI Analysis: {score_desc}"
+
         return {
             "neighborhood_score": round(float(final_display_score), 1),
+            "score_description": score_desc,
             "raw_score": round(float(listing_score), 1),
             "city": "London",
             "neighborhood": neighborhood_name,
@@ -429,33 +428,47 @@ def get_attractions(listing_id: str):
             raise HTTPException(status_code=404, detail="Listing not found")
 
         l = listing_slice.iloc[0]
-        score = l.get('neighborhood_score', 5.0)
+        score = float(l.get('neighborhood_score') or 5.0)
 
-        res_count = int(score * 2.5)
-        cafe_count = int(score * 1.5)
-        dest_count = int(score * 1.2)
-        trans_count = int(score * 0.8)
-        trans_acc = min(10.0, float(score) + 1)
+        lat, lon = l.get('latitude'), l.get('longitude')
+        res_count, cafe_count, dest_count, trans_count = 0, 0, 0, 0
 
-        if state['X_test'] is not None:
-             try:
-                lat, lon = l.get('latitude'), l.get('longitude')
-                if lat and lon:
-                    dists = np.sqrt((state['X_test']['LAT'] - lat)**2 + (state['X_test']['LONG'] - lon)**2)
-                    idx = dists.idxmin()
-                    nearest = state['X_test'].loc[idx]
+        try:
+            if state['pois_tree'] is not None and lat and lon:
+                # Use K-nearest neighbors for a consistent search scale instead of radius
+                k_val = min(150, len(state['pois_df']))
+                dists, indices = state['pois_tree'].query([lat, lon], k=k_val)
+                
+                # Ensure indices is iterable even if k=1
+                if k_val == 1:
+                    indices = [indices]
+                    
+                for idx in indices:
+                    p_type = str(state['pois_df'].iloc[idx]['poi_type']).lower()
+                    if any(t in p_type for t in ["restaurant", "pub", "bar"]):
+                        res_count += 1
+                    elif "cafe" in p_type:
+                        cafe_count += 1
+                    elif any(t in p_type for t in ["museum", "viewpoint", "attraction", "arts_centre", "theatre", "tourism", "monument", "castle", "gallery"]):
+                        dest_count += 1
+                    elif any(t in p_type for t in ["transport", "station", "bus", "subway"]):
+                        trans_count += 1
 
-                    density = float(nearest.get('spatial_amenity_density', 100))
-                    res_count = int(density / 12) + 2
-                    cafe_count = int(density / 25) + 1
-                    dest_count = int(density / 45) + 3
+            if res_count == 0 and cafe_count == 0:
+                density = float(l.get('spatial_amenity_density', 100))
+                res_count = int(density / 12) + 2
+                cafe_count = int(density / 25) + 1
+                dest_count = int(density / 45) + 3
+                trans_count = int(l.get('spatial_amenities_500m', 0) * 1.2) + 1
 
-                    res_count = max(res_count, int(score * 2))
-                    dest_count = max(dest_count, int(score))
-
-                    trans_count = int(nearest.get('spatial_amenities_500m', 0) * 1.2) + 1
-                    trans_acc = 10.0 - float(nearest.get('spatial_nearest_amenity_km', 0.1)) * 2
-             except: pass
+            trans_acc = 10.0 - float(l.get('spatial_nearest_amenity_km', 0.1)) * 2
+        except Exception as e:
+            res_count = int(score * 2.5)
+            cafe_count = int(score * 1.5)
+            dest_count = int(score * 1.2)
+            trans_count = int(score * 0.8)
+            trans_acc = min(10.0, float(score) + 1)
+            print(f"Attractions extraction error: {e}")
 
         def gen_places(category, count):
             if state['pois_tree'] is None or state['pois_df'] is None:
@@ -549,7 +562,7 @@ def get_calendar(listing_id: int):
         if not os.path.exists(csv_path):
              return {"calendar": []}
 
-        result = subprocess.run(["grep", "-m", "100", f"^{listing_id},", csv_path], capture_output=True, text=True)
+        result = subprocess.run(["grep", "-m","100", f"^{listing_id},", csv_path], capture_output=True, text=True)
         if result.returncode == 0 and result.stdout:
              header = "listing_id,date,available,price,adjusted_price,minimum_nights,maximum_nights\n"
              csv_data = header + result.stdout
@@ -585,7 +598,9 @@ def haversine(lat1, lon1, lat2, lon2):
     R = 6371
     dlat, dlon = np.radians(lat2 - lat1), np.radians(lon2 - lon1)
     a = np.sin(dlat/2)**2 + np.cos(np.radians(lat1)) * np.cos(np.radians(lat2)) * np.sin(dlon/2)**2
-    return 2 * R * np.arctan2(np.sqrt(a), np.sqrt(1-a))
+    c= np.arctan2(np.sqrt(a), np.sqrt(1-a))
+    return 2 * R * c
+
 
 KEY_LOCATIONS = {
     'city_center': (51.5074, -0.1278),
@@ -912,7 +927,7 @@ def calculate_market_velocity(actual_price, ml_predicted_price, nh_std=None, qua
 
     if z_score > 0.5: speed = "High Velocity"
     elif z_score > -0.5: speed = "Balanced"
-    else: speed = "Price Resistance"
+    else: speed = "Slower"
 
     return {
         "probability": prob_percent,

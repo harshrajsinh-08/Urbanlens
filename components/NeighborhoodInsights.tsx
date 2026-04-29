@@ -5,6 +5,7 @@ import { API_URL } from '@/utils/config';
 
 interface NeighborhoodData {
     neighborhood_score: number;
+    score_description?: string;
     city: string;
     neighborhood: string;
     market_bracket?: string;
@@ -160,9 +161,13 @@ export default function NeighborhoodInsights({ listingId }: { listingId: string 
             <div className="space-y-4 mb-6">
                 <div>
                     <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 relative group cursor-help w-max">
                             <span className="text-lg">🚶</span>
-                            <span className="text-sm font-medium text-gray-700">Walkability</span>
+                            <span className="text-sm font-medium text-gray-700 border-b border-dotted border-gray-400">Walkability</span>
+                            <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-52 p-2 bg-gray-800 text-white text-[11px] rounded shadow-lg z-10 font-normal leading-tight">
+                                Scores drop based on the exact distance (km) to the nearest local shop or restaurant.
+                                <div className="absolute left-4 top-full w-2 h-2 bg-gray-800 transform rotate-45 -mt-1"></div>
+                            </div>
                         </div>
                         <span className={`text-sm font-semibold ${getScoreColor(data.insights?.walkability ?? 0)}`}>
                             {(data.insights?.walkability ?? 0).toFixed(1)}/10
@@ -178,9 +183,13 @@ export default function NeighborhoodInsights({ listingId }: { listingId: string 
 
                 <div>
                     <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 relative group cursor-help w-max">
                             <span className="text-lg">🛡️</span>
-                            <span className="text-sm font-medium text-gray-700">Safety</span>
+                            <span className="text-sm font-medium text-gray-700 border-b border-dotted border-gray-400">Safety</span>
+                            <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-52 p-2 bg-gray-800 text-white text-[11px] rounded shadow-lg z-10 font-normal leading-tight">
+                                Safest in quiet suburbs. Highly dense nightlife and tourist zones receive slight penalties.
+                                <div className="absolute left-4 top-full w-2 h-2 bg-gray-800 transform rotate-45 -mt-1"></div>
+                            </div>
                         </div>
                         <span className={`text-sm font-semibold ${getScoreColor(data.insights?.safety ?? 0)}`}>
                             {(data.insights?.safety ?? 0).toFixed(1)}/10
@@ -196,9 +205,13 @@ export default function NeighborhoodInsights({ listingId }: { listingId: string 
 
                 <div>
                     <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 relative group cursor-help w-max">
                             <span className="text-lg">🚇</span>
-                            <span className="text-sm font-medium text-gray-700">Public Transit</span>
+                            <span className="text-sm font-medium text-gray-700 border-b border-dotted border-gray-400">Public Transit</span>
+                            <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-52 p-2 bg-gray-800 text-white text-[11px] rounded shadow-lg z-10 font-normal leading-tight">
+                                Scores reflect access to major transit networks, penalizing greater distances from the city center.
+                                <div className="absolute left-4 top-full w-2 h-2 bg-gray-800 transform rotate-45 -mt-1"></div>
+                            </div>
                         </div>
                         <span className={`text-sm font-semibold ${getScoreColor(data.insights?.transit ?? 0)}`}>
                             {(data.insights?.transit ?? 0).toFixed(1)}/10
